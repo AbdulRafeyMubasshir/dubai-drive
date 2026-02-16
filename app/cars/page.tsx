@@ -1,6 +1,7 @@
 // app/cars/page.tsx
 import { createServerClient } from "@/lib/supabase/server";
 import CarCard from "@/components/CarCard"; // assume you have this component
+import { Car } from "@/types/supabase";
 
 export default async function CarsPage() {
   const supabase = await createServerClient();

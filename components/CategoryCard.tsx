@@ -14,7 +14,7 @@ export default function CategoryCard({ title, cars }: Props) {
     <Link href={`/cars?category=${title.toLowerCase()}`} className="card">
       <div
         className="card-image"
-        style={{ backgroundImage: `url(${first.image})` }}
+        style={{ backgroundImage: `url(${first.images[0]})` }}
       />
       <div className="card-content">
         <h3>{title}</h3>

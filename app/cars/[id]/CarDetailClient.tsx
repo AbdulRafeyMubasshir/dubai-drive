@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createBookingAction } from "@/app/actions/createBooking";
 import { Car } from "@/types/supabase";
 
 interface CarDetailClientProps {
@@ -32,33 +33,84 @@ export default function CarDetailClient({ initialCar }: CarDetailClientProps) {
   };
 
   // Booking flow
-  const [step, setStep] = useState<"form" | "payment" | "success">("form");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null); // stays after success
+
+  // Form fields
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [pickupDate, setPickupDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [location, setLocation] = useState("Dubai International Airport");
   const [delivery, setDelivery] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("");
-
-  const handleBookingSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pickupDate || !returnDate) {
-      alert("Please select both pickup and return dates.");
-      return;
-    }
-    setStep("payment");
-  };
-
-  const handlePayment = () => {
-    if (!paymentMethod) {
-      alert("Please select a payment method.");
-      return;
-    }
-    setStep("success");
-  };
+  const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery");
 
   const bookingRef = useRef<HTMLDivElement>(null);
   const scrollToBooking = () => {
     bookingRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleConfirmBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    // Basic validation
+    if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
+      setErrorMsg("Please enter your name, email and phone number.");
+      return;
+    }
+
+    if (!pickupDate || !returnDate) {
+      setErrorMsg("Please select both pickup and return dates.");
+      return;
+    }
+
+    // Show confirmation alert with summary
+    const confirmText = `
+Are you sure you want to confirm booking for ${car.name}?
+
+Customer: ${customerName}
+Email: ${customerEmail}
+Phone: ${customerPhone}
+
+Pickup: ${new Date(pickupDate).toLocaleString()}
+Return: ${new Date(returnDate).toLocaleString()}
+Location: ${location}${delivery ? " (with delivery)" : ""}
+
+Payment method: ${paymentMethod}
+
+Click OK to confirm booking.
+    `.trim();
+
+    if (!window.confirm(confirmText)) {
+      return; // user cancelled
+    }
+
+    setLoading(true);
+
+    const formData = new FormData();
+    formData.append("car_id", car.id);
+    formData.append("customer_name", customerName.trim());
+    formData.append("customer_email", customerEmail.trim());
+    formData.append("customer_phone", customerPhone.trim());
+    formData.append("pickup_date", pickupDate);
+    formData.append("return_date", returnDate);
+    formData.append("location", location);
+    formData.append("delivery", delivery.toString());
+    formData.append("payment_method", paymentMethod);
+
+    const result = await createBookingAction(formData);
+
+    if (result.error) {
+      setErrorMsg(result.error);
+    } else {
+      setBookingId(result.bookingId);
+      // Success message now stays forever (no timeout)
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -192,11 +244,57 @@ export default function CarDetailClient({ initialCar }: CarDetailClientProps) {
       <div ref={bookingRef} className="booking-card">
         <h2>Book this car</h2>
 
-        {step === "form" && (
-          <form onSubmit={handleBookingSubmit} className="booking-form">
+        {bookingId ? (
+          // Success stays forever
+          <div className="success-message">
+            <strong>Booking Confirmed!</strong><br /><br />
+            Reference: <strong>{bookingId.slice(0, 8).toUpperCase()}</strong><br />
+            Vehicle: {car.name}<br />
+            Pickup: {new Date(pickupDate).toLocaleString()}<br />
+            Return: {new Date(returnDate).toLocaleString()}<br />
+            Location: {location}
+            {delivery && " (with delivery)"}
+            <br /><br />
+            Payment method: {paymentMethod}<br />
+            <small>We will contact you soon to confirm.</small>
+          </div>
+        ) : (
+          <form onSubmit={handleConfirmBooking} className="booking-form">
+            {/* Customer details */}
             <div className="form-grid">
               <div>
-                <label>Pickup date & time</label>
+                <label>Full Name *</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label>Email *</label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label>Phone *</label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Rental details */}
+            <div className="form-grid">
+              <div>
+                <label>Pickup date & time *</label>
                 <input
                   type="datetime-local"
                   value={pickupDate}
@@ -205,7 +303,7 @@ export default function CarDetailClient({ initialCar }: CarDetailClientProps) {
                 />
               </div>
               <div>
-                <label>Return date & time</label>
+                <label>Return date & time *</label>
                 <input
                   type="datetime-local"
                   value={returnDate}
@@ -234,50 +332,21 @@ export default function CarDetailClient({ initialCar }: CarDetailClientProps) {
               <label htmlFor="delivery">Deliver to my location (extra fee may apply)</label>
             </div>
 
-            <button type="submit" className="btn btn-primary btn-large" style={{ marginTop: "1.5rem" }}>
-              Proceed to Payment
+            {errorMsg && (
+              <div style={{ color: "#ff6b6b", margin: "1rem 0" }}>
+                {errorMsg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn btn-primary btn-large"
+              style={{ marginTop: "1.5rem" }}
+              disabled={loading}
+            >
+              {loading ? "Processing..." : "Confirm Booking"}
             </button>
           </form>
-        )}
-
-        {step === "payment" && (
-          <div className="payment-section">
-            <h3>Select Payment Method</h3>
-            {["Credit / Debit Card", "Apple Pay / Google Pay", "Cash on Delivery"].map((method) => (
-              <label key={method} className="payment-option">
-                <input
-                  type="radio"
-                  name="payment"
-                  value={method}
-                  checked={paymentMethod === method}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                />
-                {method}
-              </label>
-            ))}
-            <button
-              onClick={handlePayment}
-              className="btn btn-primary btn-large"
-              style={{ marginTop: "1.5rem", width: "100%" }}
-            >
-              Confirm & Pay
-            </button>
-          </div>
-        )}
-
-        {step === "success" && (
-          <div className="success-message">
-            <strong>Booking Confirmed!</strong><br /><br />
-            Vehicle: {car.name}<br />
-            Pickup: {pickupDate ? new Date(pickupDate).toLocaleString() : "—"}<br />
-            Return: {returnDate ? new Date(returnDate).toLocaleString() : "—"}<br />
-            Location: {location}
-            {delivery && " (with delivery)"}
-            <br /><br />
-            Payment method: {paymentMethod}
-            <br />
-            <small>(Simulation – real system would process payment & send confirmation)</small>
-          </div>
         )}
       </div>
     </div>

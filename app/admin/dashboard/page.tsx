@@ -1,22 +1,21 @@
 // app/admin/dashboard/page.tsx
 import { createServerClient } from "@/lib/supabase/server";
-import { addCarAction } from "../actions"; // Make sure this file exists in the same folder
+import { addCarAction } from "../actions";
+import Link from "next/link";
 
 export default async function AdminDashboard({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  // ── Await searchParams (required in Next.js 15+ / 16) ────────────────────────
+  // Await searchParams (required in Next.js 15+ / 16)
   const resolvedSearchParams = await searchParams;
   const errorMessage = resolvedSearchParams.error
     ? decodeURIComponent(resolvedSearchParams.error)
     : null;
 
-  // ── Get Supabase client ──────────────────────────────────────────────────────
   const supabase = await createServerClient();
 
-  // ── Fetch cars ───────────────────────────────────────────────────────────────
   const { data: cars, error: fetchError } = await supabase
     .from("cars")
     .select("*")
@@ -34,11 +33,23 @@ export default async function AdminDashboard({
 
   return (
     <div style={{ padding: "1.5rem 0" }}>
-      <h1 style={{ fontSize: "2.8rem", marginBottom: "2rem", color: "#fff" }}>
-        Admin Dashboard
-      </h1>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "2rem",
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: "2.5rem" }}>Admin Dashboard</h1>
+        <Link href="/admin/bookings">
+          <button className="btn btn-primary">
+            Manage Bookings
+          </button>
+        </Link>
+      </div>
 
-      {/* Error message from redirect (e.g. failed add) */}
+      {/* Error message from redirect */}
       {errorMessage && (
         <div
           style={{
@@ -55,7 +66,7 @@ export default async function AdminDashboard({
         </div>
       )}
 
-      {/* ── Add Car Form ───────────────────────────────────────────────────────── */}
+      {/* Add Car Form */}
       <section
         style={{
           background: "#1a1f2b",
@@ -264,7 +275,7 @@ export default async function AdminDashboard({
         </form>
       </section>
 
-      {/* ── Cars List ────────────────────────────────────────────────────────────── */}
+      {/* Cars List */}
       <section>
         <h2 style={{ marginBottom: "1.8rem", color: "#00d4ff" }}>
           Current Cars ({cars?.length || 0})
