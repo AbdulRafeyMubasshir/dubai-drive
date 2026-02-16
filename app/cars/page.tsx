@@ -1,39 +1,37 @@
-"use client";
+// app/cars/page.tsx
+import { createServerClient } from "@/lib/supabase/server";
+import CarCard from "@/components/CarCard"; // assume you have this component
 
-import { useState } from "react";
-import CarCard from "@/components/CarCard";
-import { cars } from "@/data/cars";
+export default async function CarsPage() {
+  const supabase = await createServerClient();
 
-export default function CarsPage() {
-  const [search, setSearch] = useState("");
+  const { data: cars, error } = await supabase
+    .from("cars")
+    .select("*")
+    .eq("is_active", true)
+    .order("price_day", { ascending: true });
 
-  const filtered = cars.filter(
-    (car) =>
-      car.name.toLowerCase().includes(search.toLowerCase()) ||
-      car.category.toLowerCase().includes(search.toLowerCase())
-  );
+  if (error) {
+    console.error("Error fetching cars:", error);
+    return <div>Error loading cars. Please try later.</div>;
+  }
 
   return (
     <div className="container section">
       <div className="search-wrapper">
-        <input
-          type="text"
-          placeholder="Search by brand, model or category..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="search-input"
-        />
+        {/* keep your search input – but now it's client-side filtering or add server search later */}
+        <input type="text" placeholder="Search by brand, model or category..." className="search-input" />
       </div>
 
       <div className="cars-grid">
-        {filtered.map((car) => (
+        {cars?.map((car: Car) => (
           <CarCard key={car.id} car={car} />
         ))}
       </div>
 
-      {filtered.length === 0 && (
+      {(!cars || cars.length === 0) && (
         <p style={{ textAlign: "center", color: "#aaa", margin: "4rem 0" }}>
-          No cars found.
+          No cars available at the moment.
         </p>
       )}
     </div>
