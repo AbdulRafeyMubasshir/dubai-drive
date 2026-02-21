@@ -19,15 +19,19 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  // Optional: stricter role check
-  // Note: user_metadata.role is not standard — better use profiles table in production
-  const role = user.user_metadata?.role as string | undefined;
+  // ✅ Production-grade role check from profiles table
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
 
-  if (role !== "admin") {
-    // Logout and redirect
+  if (error || profile?.role !== "admin") {
     await supabase.auth.signOut();
     redirect("/login?error=not-admin");
   }
+
+  const role = profile?.role as string | undefined;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f121a" }}>
@@ -51,9 +55,13 @@ export default async function AdminLayout({
         >
           <div>
             <Link href="/admin/dashboard" style={{ textDecoration: "none" }}>
-              <h2 style={{ margin: 0, color: "#00d4ff" }}>Dubai Drive Admin</h2>
+              <h2 style={{ margin: 0, color: "#00d4ff" }}>
+                Dubai Drive Admin
+              </h2>
             </Link>
-            <small style={{ color: "#aaa" }}>Manage cars & bookings</small>
+            <small style={{ color: "#aaa" }}>
+              Manage cars & bookings
+            </small>
           </div>
 
           <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
